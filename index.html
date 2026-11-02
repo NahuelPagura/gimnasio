@@ -54,6 +54,7 @@
   --shadow: 0 1px 2px rgb(0 0 0 / .4); color-scheme: dark;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { margin: 0; min-height: 100vh; padding-top: env(safe-area-inset-top, 0px); background: var(--bg); color: var(--ink); font: 15px/1.5 var(--f-body); -webkit-text-size-adjust: 100%; }
 body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
 button, input, select, textarea { font: inherit; color: inherit; }
@@ -75,6 +76,13 @@ h3 { font-size: 1.25rem; }
 .brand { display: flex; align-items: center; gap: 8px; font-family: var(--f-display); font-weight: 700; font-size: 1.25rem; text-transform: uppercase; letter-spacing: .03em; }
 .plate { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); position: relative; flex: none; }
 .plate::after { content: ""; position: absolute; inset: 9px; border-radius: 50%; background: var(--surface); }
+.sync { margin-left: auto; border: 0; background: transparent; display: inline-flex; align-items: center; gap: 6px; padding: 6px 4px; font-size: .75rem; font-weight: 600; color: var(--muted); }
+.sync i { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+.sync.ok i { background: var(--good); }
+.sync.busy i { background: var(--s1); }
+.sync.error i { background: var(--accent); }
+.sync.error { color: var(--accent); }
+@media (max-width: 520px) { .sync span { display: none; } }
 .who { display: flex; gap: 4px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
 .who button { border: 0; background: transparent; padding: 6px 14px; border-radius: 999px; font-weight: 600; font-size: .9rem; color: var(--ink-2); }
 .who button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
@@ -252,6 +260,7 @@ body.has-tmr main { padding-bottom: 180px; }
 <header class="top">
   <div class="wrap top-in">
     <div class="brand"><span class="plate" aria-hidden="true"></span>Libreta de Fierros</div>
+    <button class="sync" id="sync" data-act="sync-open" hidden><i aria-hidden="true"></i><span id="sync-t"></span></button>
     <div class="who" id="who" aria-label="Atleta"></div>
   </div>
 </header>
@@ -499,11 +508,13 @@ function renderNav() { for (const b of $("#nav").children) b.setAttribute("aria-
 function renderBanner() {
   $("#banner").innerHTML = S.noDb ? `<div class="banner">No se pudo abrir la libreta en este navegador. Recargá la app; si sigue igual, revisá que no estés en modo incógnito.</div>`
     : !S.canWrite ? `<div class="banner">Estás en modo lectura. Pedile al dueño de la libreta que te comparta acceso de Colaborador para poder anotar.</div>`
-    : backupDue() ? `<div class="banner row between"><span>${LS.get("lf.backup") ? "Hace más de 2 semanas que no bajás una copia de tus datos." : "Todavía no bajaste ninguna copia de tus datos."} Viven solo en este celular.</span><button class="btn sm" data-act="bk-export">Bajar copia</button></div>` : "";
+    : backupDue() ? `<div class="banner row between"><span>${LS.get("lf.backup") ? "Hace más de 2 semanas que no bajás una copia de tus datos." : "Todavía no bajaste ninguna copia de tus datos."} Viven solo en este celular.</span><button class="btn sm" data-act="bk-share">Compartir copia</button></div>` : "";
 }
 // En modo local los datos viven solo en el navegador: pedimos copia cada 14 días si hay sesiones anotadas
 function backupDue() {
   if (!S.db?.local || !Object.keys(S.logs).length) return false;
+  // Con la sincronización andando, GitHub ya es la copia
+  if (SY.cfg && Date.now() - SY.at < 14 * DAY) return false;
   const last = LS.get("lf.backup");
   return !last || (parseISO(todayISO()) - parseISO(last)) / DAY > 14;
 }
@@ -552,7 +563,7 @@ function viewAthleteForm() {
     ${athleteFormFields(null, "na")}
     <div class="row">${first ? "" : `<button class="btn ghost" data-act="cancel-athlete">Cancelar</button>`}<button class="btn primary" data-act="create-athlete">Crear atleta</button></div>
   </div>
-  ${first ? `<div class="card row between"><span class="small">¿Tenés una copia de la libreta? Cargala y seguís donde estabas.</span><label class="btn" for="bk-file" style="display:inline-flex;align-items:center">Cargar copia</label><input type="file" id="bk-file" accept=".json,application/json" hidden></div>` : ""}` };
+  ${first ? `${syncCard()}<div class="card row between"><span class="small">¿Tenés una copia de la libreta? Cargala y seguís donde estabas.</span><label class="btn" for="bk-file" style="display:inline-flex;align-items:center">Cargar copia</label><input type="file" id="bk-file" accept=".json,.txt,application/json,text/plain" hidden></div>` : ""}` };
 }
 
 /* ---------- ENTRENAR ---------- */
@@ -958,6 +969,7 @@ Curl bíceps sentado 3 series</pre>
     ${dayHtml}
     <div><button class="btn" data-act="r-addday">+ Agregar día</button></div>
     ${cycleCard(ath)}
+    ${syncCard()}
     ${backupCard()}`,
   };
 }
@@ -976,9 +988,29 @@ function cycleCard(ath) {
 function backupCard() {
   const last = LS.get("lf.backup");
   return `<div class="card stack">
-    <div><div class="eyebrow">Copia de seguridad</div><h3>${last ? "Última copia: " + fmtDateLong(last) : "Todavía no bajaste ninguna copia"}</h3></div>
-    <p class="small muted" style="margin:0">${S.db?.local ? "Tus datos viven solo en este celular. Bajá una copia cada tanto y guardala en Drive o mandátela por WhatsApp; si cambiás de celular o se borra el navegador, la cargás y seguís como si nada." : "Bajá una copia de todos los datos de la libreta en un archivo."}</p>
-    <div class="row"><button class="btn primary" data-act="bk-export">Bajar copia</button><label class="btn" for="bk-file" style="display:inline-flex;align-items:center">Cargar copia</label><input type="file" id="bk-file" accept=".json,application/json" hidden></div>
+    <div><div class="eyebrow">Copia de seguridad</div><h3>${last ? "Última copia: " + fmtDateLong(last) : "Todavía no hiciste ninguna copia"}</h3></div>
+    <p class="small muted" style="margin:0">${!S.db?.local ? "Bajá una copia de todos los datos de la libreta en un archivo."
+      : SY.cfg ? "Con la sincronización, tus datos ya están guardados en GitHub. La copia es un respaldo extra en un archivo."
+      : "Tus datos viven solo en este celular. Compartí una copia a Drive o a tu WhatsApp cada tanto; si cambiás de celular o se borra el navegador, la cargás y seguís como si nada."}</p>
+    <div class="row"><button class="btn primary" data-act="bk-share">Compartir copia</button><button class="btn" data-act="bk-export">Bajar copia</button><label class="btn" for="bk-file" style="display:inline-flex;align-items:center">Cargar copia</label><input type="file" id="bk-file" accept=".json,.txt,application/json,text/plain" hidden></div>
+  </div>`;
+}
+function syncCard() {
+  if (!S.db?.local) return "";
+  const c = SY.cfg;
+  return `<div class="card stack" id="sync-card">
+    <div><div class="eyebrow">Sincronización</div><h3>${c ? "Conectada a GitHub" : "Usar la libreta en la compu y en el celular"}</h3></div>
+    ${c ? `<p class="small" id="sync-status" style="margin:0">${esc(syncText())}</p>
+      <p class="small muted" style="margin:0">Tus datos se guardan en el repo privado <b>${esc(c.repo)}</b>, con el historial de cada cambio. Desde la compu ves lo mismo que en el celular, y sin señal todo se sigue guardando acá y se sube cuando vuelve.</p>
+      <div class="row"><button class="btn primary" data-act="sync-now">Sincronizar ahora</button><button class="btn ghost" data-act="sync-off">Desconectar este dispositivo</button></div>`
+    : `<p class="small muted" style="margin:0">Conectá la libreta al repo privado <b>${SYNC_REPO}</b>: tus datos quedan guardados en GitHub, los ves desde la compu y en el gimnasio sigue andando sin señal.</p>
+      <ol class="small" style="margin:0;padding-left:20px;display:grid;gap:4px">
+        <li>Entrá a <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">crear un token en GitHub</a>.</li>
+        <li><b>Repository access</b>: Only select repositories → <b>${SYNC_REPO.split("/")[1]}</b>.</li>
+        <li><b>Permissions</b> → Repository permissions → <b>Contents: Read and write</b>.</li>
+        <li>Generá el token, copialo y pegalo acá. Es tu código: no se lo pases a nadie.</li>
+      </ol>
+      <div class="row" style="align-items:end"><div class="field" style="flex:1 1 220px"><label for="sy-token">Token de GitHub</label><input class="in" id="sy-token" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…"></div><button class="btn primary" data-act="sync-on">Conectar</button></div>`}
   </div>`;
 }
 
@@ -1172,6 +1204,18 @@ document.addEventListener("click", async ev => {
       break;
     }
     case "bk-export": exportBackup(); break;
+    case "bk-share": shareBackup(); break;
+    case "sync-on": {
+      const token = $("#sy-token")?.value.trim();
+      if (!token) { toast("Pegá el token de GitHub."); break; }
+      b.disabled = true;
+      await syncConnect(token);
+      b.disabled = false;
+      break;
+    }
+    case "sync-now": syncNow(); break;
+    case "sync-off": syncDisconnect(); break;
+    case "sync-open": go("rutina"); $("#sync-card")?.scrollIntoView({ block: "center" }); syncNow(); break;
     case "r-save": {
       if (!guard()) break;
       const days = rt.draft.days.map(d => ({ id: d.id || rid(), name: d.name.trim() || "Día", exercises: d.exercises.filter(x => String(x.name).trim()).map(x => ({ id: x.id || rid(), name: String(x.name).trim(), sets: parseInt(x.sets) || null, reps: String(x.reps || "").trim(), note: String(x.note || "").trim(), ...(parseRest(x.rest) ? { rest: parseRest(x.rest) } : {}) })) }));
@@ -1315,10 +1359,24 @@ async function saveCycleStart(date, msg) {
   if (!guard()) return;
   try { await S.db.collection("athletes").doc(S.me).set({ ...S.athletes[S.me], cycleStart: date }); toast(msg); } catch (e) { writeFail(e); }
 }
-function exportBackup() {
+function backupJson() {
   const data = {};
   for (const c of COLS) data[c] = S[c];
-  const blob = new Blob([JSON.stringify({ app: "libreta-de-fierros", version: 1, exportedAt: new Date().toISOString(), data }, null, 1)], { type: "application/json" });
+  return JSON.stringify({ app: "libreta-de-fierros", version: 1, exportedAt: new Date().toISOString(), data }, null, 1);
+}
+async function shareBackup() {
+  // Android solo deja compartir ciertos tipos de archivo: va como .txt y "Cargar copia" lo lee igual
+  const file = new File([backupJson()], `libreta-de-fierros-${todayISO()}.txt`, { type: "text/plain" });
+  if (!navigator.canShare?.({ files: [file] })) return exportBackup();
+  try {
+    await navigator.share({ files: [file], title: "Copia de la Libreta de Fierros" });
+    LS.set("lf.backup", todayISO());
+    toast("Copia compartida");
+    render();
+  } catch (e) { if (e.name !== "AbortError") toast("No se pudo compartir. Probá con Bajar copia."); }
+}
+function exportBackup() {
+  const blob = new Blob([backupJson()], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = `libreta-de-fierros-${todayISO()}.json`;
@@ -1353,11 +1411,12 @@ async function importBackup(file) {
 }
 
 /* ---------- base local ---------- */
-// Misma forma que la base de claude.ai (collection/doc/set/delete/onSnapshot), guardada en IndexedDB del navegador
+// Misma forma que la base de claude.ai (collection/doc/set/delete/onSnapshot), guardada en IndexedDB del navegador.
+// Cada documento lleva _u (cuándo cambió) y los borrados quedan como { _deleted, _u }: así se pueden sincronizar.
 async function localDb() {
   const idb = await new Promise((ok, ko) => {
-    const r = indexedDB.open("libreta-de-fierros", 1);
-    r.onupgradeneeded = () => r.result.createObjectStore("docs");
+    const r = indexedDB.open("libreta-de-fierros", 2);
+    r.onupgradeneeded = () => { for (const s of ["docs", "meta"]) if (!r.result.objectStoreNames.contains(s)) r.result.createObjectStore(s); };
     r.onsuccess = () => ok(r.result);
     r.onerror = () => ko(r.error);
   });
@@ -1373,24 +1432,155 @@ async function localDb() {
     };
     req.onerror = () => ko(req.error);
   });
-  const emit = col => { const docs = Object.entries(data[col] || {}).map(([id, v]) => ({ id, data: () => clone(v) })); for (const cb of subs[col] || []) cb({ docs }); };
-  const write = (key, v) => new Promise((ok, ko) => {
-    const tx = idb.transaction("docs", "readwrite"), st = tx.objectStore("docs");
-    if (v === undefined) st.delete(key); else st.put(v, key);
-    const fail = () => ko(tx.error?.name === "QuotaExceededError" ? { code: "quota_exceeded" } : tx.error);
-    tx.oncomplete = () => ok(); tx.onerror = fail; tx.onabort = fail;
+  const emit = col => { const docs = Object.entries(data[col] || {}).filter(([, v]) => !v._deleted).map(([id, v]) => ({ id, data: () => clone(v) })); for (const cb of subs[col] || []) cb({ docs }); };
+  const tx = (store, fn) => new Promise((ok, ko) => {
+    const t = idb.transaction(store, "readwrite"), r = fn(t.objectStore(store));
+    const fail = () => ko(t.error?.name === "QuotaExceededError" ? { code: "quota_exceeded" } : t.error);
+    t.oncomplete = () => ok(r?.result); t.onerror = fail; t.onabort = fail;
   });
+  const put = entries => tx("docs", st => { for (const [k, v] of entries) st.put(v, k); });
+  let onWrite = () => {};
+  const write = async (col, id, v) => { await put([[col + "/" + id, v]]); (data[col] ||= {})[id] = v; emit(col); onWrite(); };
   return {
     local: true,
     collection: col => ({
       doc: id => ({
-        async set(v) { v = clone(v); await write(col + "/" + id, v); (data[col] ||= {})[id] = v; emit(col); },
-        async delete() { await write(col + "/" + id); if (data[col]) delete data[col][id]; emit(col); },
+        set: v => write(col, id, { ...clone(v), _u: Date.now() }),
+        delete: () => write(col, id, { _deleted: true, _u: Date.now() }),
       }),
       onSnapshot(cb) { (subs[col] ||= []).push(cb); setTimeout(() => emit(col), 0); return () => {}; },
     }),
+    // Todo, incluidos los borrados: es lo que se sincroniza
+    all: () => data,
+    // Cambios que llegan de la nube: se guardan tal cual, salvo que acá haya algo más nuevo
+    async apply(changes) {
+      changes = changes.filter(c => (data[c.col]?.[c.id]?._u || 0) <= (c.v._u || 0));
+      if (!changes.length) return;
+      await put(changes.map(c => [c.col + "/" + c.id, c.v]));
+      const cols = new Set();
+      for (const c of changes) { (data[c.col] ||= {})[c.id] = c.v; cols.add(c.col); }
+      cols.forEach(emit);
+    },
+    meta: {
+      get: k => new Promise(ok => { const r = idb.transaction("meta").objectStore("meta").get(k); r.onsuccess = () => ok(r.result); r.onerror = () => ok(undefined); }),
+      set: (k, v) => tx("meta", st => st.put(v, k)),
+    },
+    onWrite: fn => { onWrite = fn; },
   };
 }
+
+/* ---------- sincronización con GitHub ---------- */
+// Los datos viven en un repo privado de GitHub: un JSON por colección y los logs, uno por mes.
+// Al sincronizar se mezcla documento por documento y gana el _u más nuevo. Sin señal, todo sigue
+// guardándose en el celular y se sube cuando vuelve.
+const SYNC_REPO = "NahuelPagura/gimnasio-datos";
+const SY = { cfg: null, state: "off", msg: "", at: +LS.get("lf.syncAt") || 0, running: null, again: false, timer: 0 };
+try { SY.cfg = JSON.parse(LS.get("lf.sync") || "null"); } catch {}
+const pathOf = (col, id, v) => col === "logs" ? `logs/${(String(id).split("__")[1] || v?.date || "").slice(0, 7) || "sin-fecha"}.json` : col + ".json";
+const colOf = path => path.startsWith("logs/") ? "logs" : path.replace(/\.json$/, "");
+const canon = v => Array.isArray(v) ? v.map(canon) : v && typeof v === "object" ? Object.fromEntries(Object.keys(v).sort().map(k => [k, canon(v[k])])) : v;
+const same = (a, b) => JSON.stringify(canon(a)) === JSON.stringify(canon(b));
+const b64enc = s => { const b = new TextEncoder().encode(s); let o = ""; for (let i = 0; i < b.length; i += 0x8000) o += String.fromCharCode(...b.subarray(i, i + 0x8000)); return btoa(o); };
+const b64dec = s => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\s/g, "")), c => c.charCodeAt(0)));
+
+async function gh(path, opt = {}) {
+  const res = await fetch("https://api.github.com/repos/" + SY.cfg.repo + path, { ...opt, cache: "no-store", headers: { Authorization: "Bearer " + SY.cfg.token, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" } });
+  const body = await res.json().catch(() => null);
+  if (!res.ok) throw Object.assign(new Error(body?.message || res.statusText), { status: res.status });
+  return body;
+}
+const syncErr = e => e.status === 401 ? "El token venció o no es válido. Desconectá y cargá uno nuevo."
+  : e.status === 403 ? "El token no tiene permiso para escribir. Tiene que tener Contents: Read and write."
+  : e.status === 404 ? `No encuentro el repo ${SY.cfg?.repo} o el token no tiene acceso a él.`
+  : e.status === 409 || e.status === 422 ? "Hubo cambios desde otro dispositivo; reintento en un momento."
+  : "No se pudo sincronizar: " + (e.message || "error desconocido");
+
+async function syncOnce() {
+  const db = S.db, cache = (await db.meta.get("remote")) || {}; // archivo → { sha, docs } tal como está en GitHub
+  const toLocal = [];
+  try {
+    const tree = await gh("/git/trees/HEAD?recursive=1");
+    const remote = {};
+    for (const f of tree.tree || []) if (f.type === "blob" && /^(athletes|routines|weights)\.json$|^logs\/[\w-]+\.json$/.test(f.path)) remote[f.path] = f.sha;
+    for (const p of Object.keys(cache)) if (!(p in remote)) delete cache[p];
+    for (const [p, sha] of Object.entries(remote)) if (cache[p]?.sha !== sha) cache[p] = { sha, docs: JSON.parse(b64dec((await gh("/git/blobs/" + sha)).content)) };
+    const local = {};
+    for (const [col, docs] of Object.entries(db.all())) for (const [id, v] of Object.entries(docs)) (local[pathOf(col, id, v)] ||= {})[id] = v;
+    for (const p of new Set([...Object.keys(local), ...Object.keys(cache)])) {
+      const L = local[p] || {}, R = cache[p]?.docs || {}, merged = {};
+      for (const id of new Set([...Object.keys(L), ...Object.keys(R)])) {
+        const l = L[id], r = R[id], w = !r ? l : !l ? r : (l._u || 0) > (r._u || 0) ? l : r;
+        merged[id] = w;
+        if (w !== l && !same(w, l)) toLocal.push({ col: colOf(p), id, v: w });
+      }
+      if (same(merged, R)) continue;
+      const res = await gh("/contents/" + p, { method: "PUT", body: JSON.stringify({ message: "Libreta: " + p, content: b64enc(JSON.stringify(canon(merged), null, 1) + "\n"), ...(cache[p] ? { sha: cache[p].sha } : {}) }) });
+      cache[p] = { sha: res.content.sha, docs: merged };
+    }
+  } finally {
+    // Aunque falle a mitad de camino, lo que ya se bajó o subió queda registrado
+    await db.apply(toLocal);
+    await db.meta.set("remote", cache);
+  }
+}
+function setSync(state, msg = "") {
+  SY.state = state; SY.msg = msg;
+  const el = $("#sync");
+  if (el) { el.hidden = !SY.cfg; el.className = "sync " + state; el.title = syncText(); $("#sync-t").textContent = { ok: "Sincronizado", busy: "Sincronizando…", offline: "Sin señal", error: "Error de sync" }[state] || ""; }
+  const st = $("#sync-status");
+  if (st) st.textContent = syncText();
+}
+function syncText() {
+  const ago = SY.at ? (() => { const m = Math.round((Date.now() - SY.at) / 60000); return m < 1 ? "recién" : m < 60 ? `hace ${m} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : "el " + fmtDateLong(iso(new Date(SY.at))); })() : "nunca";
+  return SY.state === "busy" ? "Sincronizando…"
+    : SY.state === "offline" ? `Sin señal: lo que anotes queda en este dispositivo y se sube cuando vuelva. Última sincronización: ${ago}.`
+    : SY.state === "error" ? SY.msg
+    : `✓ Todo sincronizado. Última vez: ${ago}.`;
+}
+function syncSoon(ms = 15000) { if (!SY.cfg) return; clearTimeout(SY.timer); SY.timer = setTimeout(() => { SY.timer = 0; syncNow(); }, ms); }
+function syncNow() {
+  if (!SY.cfg || !S.db?.local) return Promise.resolve();
+  if (SY.running) { SY.again = true; return SY.running; }
+  clearTimeout(SY.timer); SY.timer = 0;
+  setSync("busy");
+  // Arranca en la próxima vuelta: si fallara al instante (sin señal), el finally correría antes de
+  // asignar SY.running y la sincronización quedaría marcada como "en curso" para siempre
+  SY.running = Promise.resolve().then(async () => {
+    try {
+      if (!navigator.onLine) throw new TypeError("offline");
+      await syncOnce();
+      SY.at = Date.now(); LS.set("lf.syncAt", String(SY.at));
+      setSync("ok");
+    } catch (e) {
+      // fetch tira TypeError ("Failed to fetch") cuando no hay red
+      if (!navigator.onLine || (e instanceof TypeError && /fetch|network|offline|load failed/i.test(e.message))) setSync("offline");
+      else { setSync("error", syncErr(e)); if (e.status === 409 || e.status === 422) syncSoon(3000); }
+    } finally {
+      SY.running = null;
+      if (SY.again) { SY.again = false; syncSoon(1000); }
+    }
+  });
+  return SY.running;
+}
+async function syncConnect(token) {
+  SY.cfg = { repo: SYNC_REPO, token };
+  try { await gh(""); } catch (e) { const msg = e instanceof TypeError ? "Sin conexión: probá de nuevo cuando tengas señal." : syncErr(e); SY.cfg = null; toast(msg); return; }
+  LS.set("lf.sync", JSON.stringify(SY.cfg));
+  toast("Conectado. Sincronizando…");
+  await syncNow();
+  render();
+}
+function syncDisconnect() {
+  if (!confirm("¿Desconectar este dispositivo de GitHub? Los datos quedan en este dispositivo, pero dejan de sincronizarse.")) return;
+  SY.cfg = null; LS.set("lf.sync", ""); clearTimeout(SY.timer); setSync("off"); render();
+}
+addEventListener("online", () => syncSoon(1000));
+document.addEventListener("visibilitychange", () => {
+  if (!SY.cfg) return;
+  // Al salir de la app se sube lo pendiente; al volver se trae lo nuevo
+  if (document.visibilityState === "hidden") { if (SY.timer) syncNow(); } else syncSoon(500);
+});
+setInterval(() => { if (SY.cfg && document.visibilityState === "visible") syncNow(); }, 120000);
 
 /* ---------- boot ---------- */
 async function boot() {
@@ -1400,8 +1590,12 @@ async function boot() {
   if (window.claude?.use) { try { db = await window.claude.use("db"); } catch { db = null; } }
   if (!db && window.indexedDB) {
     try { db = await localDb(); } catch { db = null; }
-    // Pide que el navegador no borre los datos para liberar espacio
-    if (db) navigator.storage?.persist?.().catch(() => {});
+    if (db) {
+      // Pide que el navegador no borre los datos para liberar espacio
+      navigator.storage?.persist?.().catch(() => {});
+      db.onWrite(() => syncSoon());
+      if (SY.cfg) { setSync("ok"); syncNow(); }
+    }
   }
   if (!db) { S.noDb = true; render(); return; }
   S.db = db;
