@@ -132,6 +132,10 @@ textarea.in { min-height: 140px; resize: vertical; font-family: var(--f-mono); f
 .set-row.head { font-size: .72rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
 .set-n { font-family: var(--f-display); font-weight: 700; font-size: 1.1rem; color: var(--muted); text-align: center; }
 .set-row .in { text-align: center; font-variant-numeric: tabular-nums; font-size: 1.05rem; font-weight: 600; min-height: 44px; }
+.set-tip { font-size: .82rem; color: var(--ink-2); padding: 0 0 2px 34px; margin-top: -2px; }
+.set-tip:empty { display: none; }
+.set-tip.up { color: var(--good); font-weight: 600; }
+.set-tip.down, .set-tip.warn { color: var(--warn); font-weight: 600; }
 .pr { font-size: .7rem; font-weight: 700; color: var(--good); text-align: center; letter-spacing: .04em; }
 .note { font-size: .82rem; color: var(--muted); font-style: italic; }
 .status { font-size: .8rem; color: var(--muted); }
@@ -371,17 +375,72 @@ const bestOf = sets => sets.reduce((b, s) => { const v = e1rm(s.kg, s.reps); ret
 const topKg = sets => Math.max(...sets.map(s => s.kg));
 const fmtSets = sets => sets.map(s => fmtKg(s.kg) + "×" + s.reps + (s.drops || []).filter(d => d.kg > 0 && d.reps > 0).map(d => " ↘ " + fmtKg(d.kg) + "×" + d.reps).join("")).join(" · ");
 
-function suggestFor(last, target) {
-  if (!last) return null;
-  const [, hi] = repRange(target.reps);
-  const top = topKg(last.sets);
-  const atTop = last.sets.filter(s => s.kg === top);
-  const need = target.sets || last.sets.length;
-  if (hi && last.sets.length >= need && atTop.length >= Math.min(need, last.sets.length) && last.sets.every(s => s.reps >= hi)) {
-    const inc = top >= 40 ? 2.5 : top >= 10 ? 2 : 1;
-    return { kg: top + inc, up: true, text: `Hiciste ${hi} reps en todas las series. Subí a ${fmtKg(top + inc)} kg.` };
+/* ---------- sobrecarga progresiva, serie por serie ---------- */
+const incOf = kg => kg >= 40 ? 2.5 : kg >= 10 ? 2 : 1;
+const refOf = (last, j) => last ? last.sets[j] || last.sets[last.sets.length - 1] : null;
+// Plan de una serie: se compara con la misma serie de la última sesión (ref).
+// Tope del rango → subís; dentro → mantenés y sumás una rep; abajo → bajás un poco.
+// prev es la serie anterior de hoy ya anotada: si te sobraron o faltaron reps, ajusta esta en el momento.
+function planSet(ref, refPrev, target, prev, deload) {
+  const [lo, hi] = repRange(target.reps);
+  if (deload) return ref ? { kg: ref.kg, reps: Math.max(1, ref.reps - 3), dir: "keep", text: `Descarga: ${fmtKg(ref.kg)} kg y cortá en ${Math.max(1, ref.reps - 3)} reps, lejos del fallo` } : null;
+  let p = null;
+  if (ref) {
+    const inc = incOf(ref.kg);
+    if (hi && ref.reps >= hi) p = { kg: ref.kg + inc, reps: lo, dir: "up", text: `Subí a ${fmtKg(ref.kg + inc)} kg: la última vez esta serie llegó a ${ref.reps}` };
+    else if (lo && ref.reps < lo && ref.kg > inc) p = { kg: ref.kg - inc, reps: lo, dir: "down", text: `Bajá a ${fmtKg(ref.kg - inc)} kg: la última vez esta serie quedó en ${ref.reps}, abajo del rango` };
+    else p = { kg: ref.kg, reps: ref.reps + 1, dir: "keep", text: `Mantené ${fmtKg(ref.kg)} kg y buscá ${ref.reps + 1} reps` };
+  } else if (prev) p = { kg: prev.kg, reps: prev.reps, dir: "keep", text: "Mismo peso que la serie anterior" };
+  // Si la última vez venías bajando el peso a propósito (pirámide, bajadas), no se ajusta por la serie anterior
+  const descending = ref && refPrev && ref.kg < refPrev.kg;
+  if (p && prev && !descending) {
+    const inc = incOf(prev.kg);
+    if (hi && prev.reps > hi && prev.kg + inc > p.kg) p = { kg: prev.kg + inc, reps: lo, dir: "up", text: `Te sobraron reps en la anterior (${prev.reps}): subí a ${fmtKg(prev.kg + inc)} kg` };
+    else if (lo && prev.reps < lo && p.kg >= prev.kg && prev.kg > inc) p = { kg: prev.kg - inc, reps: lo, dir: "down", text: `La anterior quedó en ${prev.reps}: bajá a ${fmtKg(prev.kg - inc)} kg para llegar a ${lo}` };
   }
-  return { kg: top, up: false, text: hi ? `Mantené ${fmtKg(top)} kg y sumá reps hasta llegar a ${hi} en todas.` : `Repetí ${fmtKg(top)} kg y buscá una rep más.` };
+  return p;
+}
+// Cómo te fue en una serie ya anotada
+function resultSet(s, ref, target, deload) {
+  if (deload) return { cls: "", text: "✓ Anotada" };
+  const [lo, hi] = repRange(target.reps);
+  if (hi && s.reps >= hi) return { cls: "up", text: `✓ Tope del rango: la próxima vez esta serie sube a ${fmtKg(s.kg + incOf(s.kg))} kg` };
+  if (lo && s.reps < lo) return { cls: "warn", text: `Abajo del rango de ${target.reps}: la próxima vez esta serie baja un poco` };
+  if (!ref) return { cls: "", text: "✓ Anotada" };
+  if (s.kg > ref.kg) return { cls: "up", text: `▲ +${fmtKg(s.kg - ref.kg)} kg vs la última vez` };
+  if (s.kg === ref.kg && s.reps > ref.reps) return { cls: "up", text: `▲ +${s.reps - ref.reps} ${s.reps - ref.reps === 1 ? "rep" : "reps"} vs la última vez` };
+  if (s.kg === ref.kg && s.reps === ref.reps) return { cls: "", text: "= Igual que la última vez" };
+  return { cls: "", text: "Por debajo de la última vez" };
+}
+// Consejo de cada serie de un ejercicio: la próxima a hacer lleva el plan; las anotadas, el resultado
+function setAdvice(e, last, deload) {
+  let nextFound = false;
+  return e.sets.map((s, j) => {
+    const kg = num(s.kg), reps = num(s.reps), done = kg > 0 && reps > 0;
+    const p0 = e.sets[j - 1], prev = p0 && num(p0.kg) > 0 && num(p0.reps) > 0 ? { kg: num(p0.kg), reps: num(p0.reps) } : null;
+    const ref = refOf(last, j), refPrev = j > 0 ? refOf(last, j - 1) : null;
+    const next = !done && !nextFound;
+    if (next) nextFound = true;
+    return { plan: planSet(ref, refPrev, e.target, prev, deload), next, result: done ? resultSet({ kg, reps }, ref, e.target, deload) : null };
+  });
+}
+// Resumen del ejercicio al abrir la sesión: en qué series toca subir o bajar
+function exSummary(e, last, deload) {
+  if (!last) return null;
+  if (deload) return { cls: "warn", text: `Descarga: el peso de la última vez, ${e.target.sets || e.sets.length} series y cortá 3 reps antes del fallo. Sin dropsets.` };
+  const ups = [], downs = [];
+  e.sets.forEach((_, j) => {
+    const p = planSet(refOf(last, j), j > 0 ? refOf(last, j - 1) : null, e.target, null, false);
+    if (p?.dir === "up") ups.push(j + 1);
+    if (p?.dir === "down") downs.push(j + 1);
+  });
+  const list = a => (a.length === 1 ? "la serie " : "las series ") + a.join(", ").replace(/, (\d+)$/, " y $1");
+  const [, hi] = repRange(e.target.reps);
+  let text = ups.length && ups.length === e.sets.length ? "▲ Llegaste al tope en todas las series: hoy subís de peso."
+    : ups.length ? `▲ Hoy subís de peso en ${list(ups)}. En el resto mantené y sumá reps.`
+    : hi ? `Mantené el peso y buscá sumar una rep por serie hasta llegar a ${hi}.` : "Repetí el peso y buscá una rep más.";
+  if (downs.length) text += ` En ${list(downs)} bajá un poco para entrar en el rango.`;
+  return { cls: ups.length ? "up" : "", text };
 }
 
 function cycleOf(a, date) {
@@ -536,20 +595,18 @@ function viewTrain() {
   const before = k => (hist[k] || []).filter(h => h.date <= t.date && h.logId !== t.logId);
   const exHtml = d.exercises.map((e, i) => {
     const prev = before(e.key), last = prev[prev.length - 1];
-    // En descarga se repite el peso de la última semana normal y se cortan 3 reps antes del fallo
-    const sug = d.deload && last ? { kg: topKg(last.sets), up: false, text: `Descarga: ${fmtKg(topKg(last.sets))} kg como la última vez, ${e.target.sets || e.sets.length} series y cortá 3 reps antes del fallo. Sin dropsets.` } : suggestFor(last, e.target);
-    const lastRep = last ? last.sets[last.sets.length - 1].reps : "";
+    const sum = exSummary(e, last, d.deload);
+    // Los placeholders de kg y reps y el consejo de cada serie los completa updateTrainLive
     const rows = e.sets.map((s, j) => {
-      const ph = last?.sets[j] || last?.sets[last.sets.length - 1];
-      const repsPh = ph?.reps ?? lastRep;
+      const ph = refOf(last, j);
       return `<div class="set-row" data-ex="${i}" data-s="${j}">
         <span class="set-n">${j + 1}</span>
-        <input class="in" id="kg-${i}-${j}" data-f="kg" inputmode="decimal" autocomplete="off" aria-label="${esc(e.name)} serie ${j + 1} kilos" placeholder="${sug ? fmtKg(sug.kg) : "kg"}" value="${esc(s.kg)}">
-        <input class="in" id="rp-${i}-${j}" data-f="reps" inputmode="numeric" autocomplete="off" aria-label="${esc(e.name)} serie ${j + 1} repeticiones" placeholder="${esc(repsPh ? (d.deload ? Math.max(1, repsPh - 3) : repsPh) : "reps")}" value="${esc(s.reps)}">
+        <input class="in" id="kg-${i}-${j}" data-f="kg" inputmode="decimal" autocomplete="off" aria-label="${esc(e.name)} serie ${j + 1} kilos" placeholder="kg" value="${esc(s.kg)}">
+        <input class="in" id="rp-${i}-${j}" data-f="reps" inputmode="numeric" autocomplete="off" aria-label="${esc(e.name)} serie ${j + 1} repeticiones" placeholder="reps" value="${esc(s.reps)}">
         <span class="pr" data-pr></span>
         <button class="icon-btn drop-btn" data-act="adddrop" data-ex="${i}" data-s="${j}" aria-label="Agregar dropset a la serie ${j + 1}" title="Agregar dropset">↘</button>
         <button class="icon-btn" data-act="rmset" data-ex="${i}" data-s="${j}" aria-label="Quitar serie ${j + 1}">×</button>
-      </div>` + (s.drops || []).map((dr, k) => {
+      </div><div class="set-tip" id="tip-${i}-${j}" aria-live="polite"></div>` + (s.drops || []).map((dr, k) => {
         const pd = ph?.drops?.[k];
         return `<div class="set-row drop" data-ex="${i}" data-s="${j}" data-dr="${k}">
         <span class="set-n" aria-hidden="true">↘</span>
@@ -564,7 +621,7 @@ function viewTrain() {
       <div class="ex-head"><h3>${esc(e.name)}</h3><span class="target">${e.target.sets ? e.target.sets + (e.target.reps ? " × " : " series") : ""}${esc(e.target.reps || "")}</span></div>
       ${e.note ? `<div class="note">${esc(e.note)}</div>` : ""}
       ${last ? `<div class="last"><span class="muted">Última vez (${fmtDate(last.date)}):</span> <span class="mono">${fmtSets(last.sets)}</span></div>` : `<div class="last muted">Primera vez que registrás este ejercicio. Anotá con qué peso arrancás.</div>`}
-      ${sug ? `<div class="hint ${sug.up ? "up" : d.deload ? "warn" : ""}">${sug.up ? "▲ " : ""}${esc(sug.text)}</div>` : ""}
+      ${sum ? `<div class="hint ${sum.cls}">${esc(sum.text)}</div>` : ""}
       <div class="sets"><div class="set-row head"><span style="text-align:center">#</span><span style="text-align:center">kg</span><span style="text-align:center">Reps</span><span></span><span></span><span></span></div>${rows}</div>
       <div class="row"><button class="btn sm" data-act="addset" data-ex="${i}">+ Serie</button><button class="btn sm" data-act="tmr-start" data-ex="${i}" aria-label="Arrancar descanso de ${fmtClock(e.rest)}">⏱ ${fmtClock(e.rest)}</button>${last ? `<button class="btn sm ghost" data-act="copylast" data-ex="${i}">Copiar la última vez</button>` : ""}</div>
     </section>`;
@@ -586,7 +643,7 @@ function viewTrain() {
       ${cycHtml}
       <div class="summary" id="t-sum"></div>
       <div class="row between"><span class="status" id="t-status">${S.logs[t.logId] ? "Guardado" : "Se guarda solo mientras anotás"}</span>
-        <span class="small muted">Doble progresión: al completar el tope de reps en todas las series, subís el peso. ↘ agrega un dropset a esa serie.</span></div>
+        <span class="small muted">Sobrecarga progresiva serie por serie: cada serie se compara con la misma de la última vez. Al llegar al tope del rango, esa serie sube de peso. Debajo de la serie que te toca ves si subís, mantenés o bajás. ↘ agrega un dropset.</span></div>
     </div>${exHtml}${recentHtml}`,
     mount() { updateTrainLive(); },
   };
@@ -597,8 +654,20 @@ function updateTrainLive() {
   if (!d) return;
   const hist = exHistory(S.me, t.logId);
   let sets = 0, vol = 0, prs = 0;
+  const ARROW = { up: "▲ ", down: "▼ ", keep: "= " };
   d.exercises.forEach((e, i) => {
-    const prevBest = (hist[e.key] || []).filter(h => h.date <= t.date).reduce((m, h) => Math.max(m, bestOf(h.sets).e), 0);
+    const prevH = (hist[e.key] || []).filter(h => h.date <= t.date);
+    const prevBest = prevH.reduce((m, h) => Math.max(m, bestOf(h.sets).e), 0);
+    const lo = repRange(e.target.reps)[0];
+    setAdvice(e, prevH[prevH.length - 1], d.deload).forEach((a, j) => {
+      const kgEl = $(`#kg-${i}-${j}`), rpEl = $(`#rp-${i}-${j}`), tip = $(`#tip-${i}-${j}`);
+      if (kgEl) kgEl.placeholder = a.plan ? fmtKg(a.plan.kg) : "kg";
+      if (rpEl) rpEl.placeholder = a.plan?.reps ? String(a.plan.reps) : lo ? String(lo) : "reps";
+      if (!tip) return;
+      const m = a.result || (a.next && a.plan ? { cls: a.plan.dir, text: ARROW[a.plan.dir] + a.plan.text } : null);
+      tip.className = "set-tip " + (m?.cls || "");
+      tip.textContent = m?.text || "";
+    });
     let shown = false;
     e.sets.forEach((s, j) => {
       const kg = num(s.kg), reps = num(s.reps);
