@@ -142,8 +142,6 @@ textarea.in { min-height: 140px; resize: vertical; font-family: var(--f-mono); f
 .set-row .in { text-align: center; font-variant-numeric: tabular-nums; font-size: 1.05rem; font-weight: 600; min-height: 44px; }
 .set-tip { font-size: .82rem; color: var(--ink-2); padding: 0 0 2px 34px; margin-top: -2px; }
 .set-tip:empty { display: none; }
-.set-tip.up { color: var(--good); font-weight: 600; }
-.set-tip.down, .set-tip.warn { color: var(--warn); font-weight: 600; }
 .pr { font-size: .7rem; font-weight: 700; color: var(--good); text-align: center; letter-spacing: .04em; }
 .note { font-size: .82rem; color: var(--muted); font-style: italic; }
 .status { font-size: .8rem; color: var(--muted); }
@@ -222,20 +220,26 @@ details[open] > summary::before { content: "−"; }
 .nav button svg { width: 24px; height: 24px; }
 .nav button[aria-current="page"] { color: var(--accent); }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(76px + env(safe-area-inset-bottom, 0px)); z-index: 11; background: var(--ink); color: var(--surface); padding: 9px 16px; border-radius: 8px; font-size: .88rem; font-weight: 500; max-width: calc(100% - 32px); box-shadow: var(--shadow); }
-body.has-tmr .toast { bottom: calc(142px + env(safe-area-inset-bottom, 0px)); }
-body.has-tmr main { padding-bottom: 180px; }
+body.has-tmr .toast { bottom: calc(330px + env(safe-area-inset-bottom, 0px)); }
+body.has-tmr main { padding-bottom: 360px; }
 
-/* cronómetro de descanso: flota sobre la barra de pestañas */
-.tmr { position: fixed; left: 0; right: 0; bottom: calc(62px + env(safe-area-inset-bottom, 0px)); z-index: 10; padding: 0 max(12px, env(safe-area-inset-right, 0px)) 8px max(12px, env(safe-area-inset-left, 0px)); pointer-events: none; }
-.tmr-box { pointer-events: auto; max-width: 696px; margin: 0 auto; background: var(--ink); color: var(--surface); border-radius: 12px; box-shadow: 0 6px 24px rgb(0 0 0 / .25); overflow: hidden; }
-.tmr-in { display: grid; grid-template-columns: auto minmax(0,1fr) auto auto; gap: 6px; align-items: center; padding: 8px 8px 8px 10px; }
-.tmr-main { display: grid; min-width: 0; text-align: center; }
-.tmr-main b { font-family: var(--f-display); font-size: 2rem; line-height: 1; font-variant-numeric: tabular-nums; }
-.tmr-main span { font-size: .75rem; opacity: .75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tmr button { border: 1px solid color-mix(in srgb, currentColor 30%, transparent); background: transparent; color: inherit; border-radius: 8px; min-width: 44px; height: 40px; font-weight: 700; font-size: .85rem; }
-.tmr .tmr-x { border-color: transparent; font-size: 1.2rem; min-width: 36px; }
-.tmr-bar { display: block; height: 4px; background: var(--accent); width: 100%; transform-origin: left; }
+/* cronómetro de descanso: cartel grande apoyado sobre la barra de pestañas, que sigue a mano */
+.tmr { position: fixed; left: 0; right: 0; bottom: calc(62px + env(safe-area-inset-bottom, 0px)); z-index: 10; padding: 0 max(8px, env(safe-area-inset-right, 0px)) 6px max(8px, env(safe-area-inset-left, 0px)); pointer-events: none; }
+.tmr-box { pointer-events: auto; max-width: 696px; margin: 0 auto; background: var(--ink); color: var(--surface); border-radius: 16px; box-shadow: 0 -4px 28px rgb(0 0 0 / .3); overflow: hidden; display: grid; justify-items: center; text-align: center; gap: 2px; padding: 10px 14px 0; }
+.tmr-top { width: 100%; display: flex; align-items: center; }
+.tmr-k { flex: 1; padding-left: 36px; font-size: .8rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; opacity: .75; }
+.tmr-t { font-family: var(--f-display); font-size: 4.6rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.tmr-n { font-family: var(--f-display); font-size: 1.4rem; font-weight: 700; line-height: 1.15; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tmr-s { font-size: .85rem; opacity: .75; min-height: 1.3em; }
+.tmr-btns { display: grid; grid-template-columns: 1fr 1.4fr 1fr; gap: 8px; width: 100%; margin: 10px 0 12px; }
+.tmr button { border: 1px solid color-mix(in srgb, currentColor 30%, transparent); background: transparent; color: inherit; border-radius: 10px; height: 48px; font-weight: 700; font-size: 1rem; }
+.tmr .tmr-p { background: var(--surface); color: var(--ink); border-color: transparent; }
+.tmr .tmr-x { border: 0; height: 36px; width: 36px; font-size: 1.5rem; }
+.tmr-bar { display: block; height: 5px; width: calc(100% + 28px); margin: 0 -14px; background: var(--accent); transform-origin: left; }
+.tmr.paused .tmr-t { opacity: .5; }
 .tmr.done .tmr-box { background: var(--good); color: #fff; }
+.tmr.done .tmr-t { font-size: 3rem; padding: 10px 0; }
+.tmr.done .tmr-p, .tmr.done [data-s="-15"] { visibility: hidden; }
 .tmr.done .tmr-bar { background: transparent; }
 
 @media (max-width: 520px) {
@@ -282,12 +286,15 @@ body.has-tmr main { padding-bottom: 180px; }
 </nav>
 <div class="toast" id="toast" hidden></div>
 <div class="tmr" id="tmr" hidden>
-  <div class="tmr-box">
-    <div class="tmr-in">
+  <div class="tmr-box" role="timer">
+    <div class="tmr-top"><span class="tmr-k" id="tmr-k">Siguiente serie en</span><button class="tmr-x" data-act="tmr-stop" aria-label="Cerrar cronómetro">×</button></div>
+    <b class="tmr-t" id="tmr-t">0:00</b>
+    <div class="tmr-n" id="tmr-n"></div>
+    <div class="tmr-s" id="tmr-s"></div>
+    <div class="tmr-btns">
       <button data-act="tmr-add" data-s="-15" aria-label="Restar 15 segundos">−15</button>
-      <div class="tmr-main" role="timer"><b id="tmr-t">0:00</b><span id="tmr-l">Descanso</span></div>
+      <button class="tmr-p" data-act="tmr-pause" id="tmr-p">Pausar</button>
       <button data-act="tmr-add" data-s="15" aria-label="Sumar 15 segundos">+15</button>
-      <button class="tmr-x" data-act="tmr-stop" aria-label="Cerrar cronómetro">×</button>
     </div>
     <i class="tmr-bar" id="tmr-bar"></i>
   </div>
@@ -384,73 +391,11 @@ const bestOf = sets => sets.reduce((b, s) => { const v = e1rm(s.kg, s.reps); ret
 const topKg = sets => Math.max(...sets.map(s => s.kg));
 const fmtSets = sets => sets.map(s => fmtKg(s.kg) + "×" + s.reps + (s.drops || []).filter(d => d.kg > 0 && d.reps > 0).map(d => " ↘ " + fmtKg(d.kg) + "×" + d.reps).join("")).join(" · ");
 
-/* ---------- sobrecarga progresiva, serie por serie ---------- */
-const incOf = kg => kg >= 40 ? 2.5 : kg >= 10 ? 2 : 1;
+/* ---------- marcas de la vez anterior ---------- */
+// Cada serie muestra en gris lo que hiciste en esa misma serie la última vez; la decisión de subir es tuya.
 const refOf = (last, j) => last ? last.sets[j] || last.sets[last.sets.length - 1] : null;
-// Plan de una serie: se compara con la misma serie de la última sesión (ref).
-// Tope del rango → subís; dentro → mantenés y sumás una rep; abajo → bajás un poco.
-// prev es la serie anterior de hoy ya anotada: si te sobraron o faltaron reps, ajusta esta en el momento.
-function planSet(ref, refPrev, target, prev, deload) {
-  const [lo, hi] = repRange(target.reps);
-  if (deload) return ref ? { kg: ref.kg, reps: Math.max(1, ref.reps - 3), dir: "keep", text: `Descarga: ${fmtKg(ref.kg)} kg y cortá en ${Math.max(1, ref.reps - 3)} reps, lejos del fallo` } : null;
-  let p = null;
-  if (ref) {
-    const inc = incOf(ref.kg);
-    if (hi && ref.reps >= hi) p = { kg: ref.kg + inc, reps: lo, dir: "up", text: `Subí a ${fmtKg(ref.kg + inc)} kg: la última vez esta serie llegó a ${ref.reps}` };
-    else if (lo && ref.reps < lo && ref.kg > inc) p = { kg: ref.kg - inc, reps: lo, dir: "down", text: `Bajá a ${fmtKg(ref.kg - inc)} kg: la última vez esta serie quedó en ${ref.reps}, abajo del rango` };
-    else p = { kg: ref.kg, reps: ref.reps + 1, dir: "keep", text: `Mantené ${fmtKg(ref.kg)} kg y buscá ${ref.reps + 1} reps` };
-  } else if (prev) p = { kg: prev.kg, reps: prev.reps, dir: "keep", text: "Mismo peso que la serie anterior" };
-  // Si la última vez venías bajando el peso a propósito (pirámide, bajadas), no se ajusta por la serie anterior
-  const descending = ref && refPrev && ref.kg < refPrev.kg;
-  if (p && prev && !descending) {
-    const inc = incOf(prev.kg);
-    if (hi && prev.reps > hi && prev.kg + inc > p.kg) p = { kg: prev.kg + inc, reps: lo, dir: "up", text: `Te sobraron reps en la anterior (${prev.reps}): subí a ${fmtKg(prev.kg + inc)} kg` };
-    else if (lo && prev.reps < lo && p.kg >= prev.kg && prev.kg > inc) p = { kg: prev.kg - inc, reps: lo, dir: "down", text: `La anterior quedó en ${prev.reps}: bajá a ${fmtKg(prev.kg - inc)} kg para llegar a ${lo}` };
-  }
-  return p;
-}
-// Cómo te fue en una serie ya anotada
-function resultSet(s, ref, target, deload) {
-  if (deload) return { cls: "", text: "✓ Anotada" };
-  const [lo, hi] = repRange(target.reps);
-  if (hi && s.reps >= hi) return { cls: "up", text: `✓ Tope del rango: la próxima vez esta serie sube a ${fmtKg(s.kg + incOf(s.kg))} kg` };
-  if (lo && s.reps < lo) return { cls: "warn", text: `Abajo del rango de ${target.reps}: la próxima vez esta serie baja un poco` };
-  if (!ref) return { cls: "", text: "✓ Anotada" };
-  if (s.kg > ref.kg) return { cls: "up", text: `▲ +${fmtKg(s.kg - ref.kg)} kg vs la última vez` };
-  if (s.kg === ref.kg && s.reps > ref.reps) return { cls: "up", text: `▲ +${s.reps - ref.reps} ${s.reps - ref.reps === 1 ? "rep" : "reps"} vs la última vez` };
-  if (s.kg === ref.kg && s.reps === ref.reps) return { cls: "", text: "= Igual que la última vez" };
-  return { cls: "", text: "Por debajo de la última vez" };
-}
-// Consejo de cada serie de un ejercicio: la próxima a hacer lleva el plan; las anotadas, el resultado
-function setAdvice(e, last, deload) {
-  let nextFound = false;
-  return e.sets.map((s, j) => {
-    const kg = num(s.kg), reps = num(s.reps), done = kg > 0 && reps > 0;
-    const p0 = e.sets[j - 1], prev = p0 && num(p0.kg) > 0 && num(p0.reps) > 0 ? { kg: num(p0.kg), reps: num(p0.reps) } : null;
-    const ref = refOf(last, j), refPrev = j > 0 ? refOf(last, j - 1) : null;
-    const next = !done && !nextFound;
-    if (next) nextFound = true;
-    return { plan: planSet(ref, refPrev, e.target, prev, deload), next, result: done ? resultSet({ kg, reps }, ref, e.target, deload) : null };
-  });
-}
-// Resumen del ejercicio al abrir la sesión: en qué series toca subir o bajar
-function exSummary(e, last, deload) {
-  if (!last) return null;
-  if (deload) return { cls: "warn", text: `Descarga: el peso de la última vez, ${e.target.sets || e.sets.length} series y cortá 3 reps antes del fallo. Sin dropsets.` };
-  const ups = [], downs = [];
-  e.sets.forEach((_, j) => {
-    const p = planSet(refOf(last, j), j > 0 ? refOf(last, j - 1) : null, e.target, null, false);
-    if (p?.dir === "up") ups.push(j + 1);
-    if (p?.dir === "down") downs.push(j + 1);
-  });
-  const list = a => (a.length === 1 ? "la serie " : "las series ") + a.join(", ").replace(/, (\d+)$/, " y $1");
-  const [, hi] = repRange(e.target.reps);
-  let text = ups.length && ups.length === e.sets.length ? "▲ Llegaste al tope en todas las series: hoy subís de peso."
-    : ups.length ? `▲ Hoy subís de peso en ${list(ups)}. En el resto mantené y sumá reps.`
-    : hi ? `Mantené el peso y buscá sumar una rep por serie hasta llegar a ${hi}.` : "Repetí el peso y buscá una rep más.";
-  if (downs.length) text += ` En ${list(downs)} bajá un poco para entrar en el rango.`;
-  return { cls: ups.length ? "up" : "", text };
-}
+// Único aviso: si esa serie quedó 2 o más reps por debajo del mínimo del rango, el peso era mucho
+const fewReps = (ref, target) => { const lo = repRange(target.reps)[0]; return !!(ref && lo && ref.reps <= lo - 2); };
 
 function cycleOf(a, date) {
   const start = S.athletes[a]?.cycleStart;
@@ -606,14 +551,13 @@ function viewTrain() {
   const before = k => (hist[k] || []).filter(h => h.date <= t.date && h.logId !== t.logId);
   const exHtml = d.exercises.map((e, i) => {
     const prev = before(e.key), last = prev[prev.length - 1];
-    const sum = exSummary(e, last, d.deload);
-    // Los placeholders de kg y reps y el consejo de cada serie los completa updateTrainLive
+    // Los placeholders (la marca de la última vez) y el aviso de pocas reps los completa updateTrainLive
     const rows = e.sets.map((s, j) => {
       const ph = refOf(last, j);
       return `<div class="set-row" data-ex="${i}" data-s="${j}">
         <span class="set-n">${j + 1}</span>
-        <input class="in" id="kg-${i}-${j}" data-f="kg" inputmode="decimal" autocomplete="off" aria-label="${esc(e.name)} serie ${j + 1} kilos" placeholder="kg" value="${esc(s.kg)}">
-        <input class="in" id="rp-${i}-${j}" data-f="reps" inputmode="numeric" autocomplete="off" aria-label="${esc(e.name)} serie ${j + 1} repeticiones" placeholder="reps" value="${esc(s.reps)}">
+        <input class="in" id="kg-${i}-${j}" data-f="kg" inputmode="decimal" enterkeyhint="next" autocomplete="off" aria-label="${esc(e.name)} serie ${j + 1} kilos" placeholder="kg" value="${esc(s.kg)}">
+        <input class="in" id="rp-${i}-${j}" data-f="reps" inputmode="numeric" enterkeyhint="done" autocomplete="off" aria-label="${esc(e.name)} serie ${j + 1} repeticiones" placeholder="reps" value="${esc(s.reps)}">
         <span class="pr" data-pr></span>
         <button class="icon-btn drop-btn" data-act="adddrop" data-ex="${i}" data-s="${j}" aria-label="Agregar dropset a la serie ${j + 1}" title="Agregar dropset">↘</button>
         <button class="icon-btn" data-act="rmset" data-ex="${i}" data-s="${j}" aria-label="Quitar serie ${j + 1}">×</button>
@@ -621,8 +565,8 @@ function viewTrain() {
         const pd = ph?.drops?.[k];
         return `<div class="set-row drop" data-ex="${i}" data-s="${j}" data-dr="${k}">
         <span class="set-n" aria-hidden="true">↘</span>
-        <input class="in" id="dkg-${i}-${j}-${k}" data-f="kg" inputmode="decimal" autocomplete="off" aria-label="${esc(e.name)} serie ${j + 1} dropset ${k + 1} kilos" placeholder="${pd ? fmtKg(pd.kg) : "kg"}" value="${esc(dr.kg)}">
-        <input class="in" id="drp-${i}-${j}-${k}" data-f="reps" inputmode="numeric" autocomplete="off" aria-label="${esc(e.name)} serie ${j + 1} dropset ${k + 1} repeticiones" placeholder="${pd ? esc(pd.reps) : "reps"}" value="${esc(dr.reps)}">
+        <input class="in" id="dkg-${i}-${j}-${k}" data-f="kg" inputmode="decimal" enterkeyhint="next" autocomplete="off" aria-label="${esc(e.name)} serie ${j + 1} dropset ${k + 1} kilos" placeholder="${pd ? fmtKg(pd.kg) : "kg"}" value="${esc(dr.kg)}">
+        <input class="in" id="drp-${i}-${j}-${k}" data-f="reps" inputmode="numeric" enterkeyhint="done" autocomplete="off" aria-label="${esc(e.name)} serie ${j + 1} dropset ${k + 1} repeticiones" placeholder="${pd ? esc(pd.reps) : "reps"}" value="${esc(dr.reps)}">
         <span></span><span></span>
         <button class="icon-btn" data-act="rmdrop" data-ex="${i}" data-s="${j}" data-dr="${k}" aria-label="Quitar dropset">×</button>
       </div>`;
@@ -632,7 +576,6 @@ function viewTrain() {
       <div class="ex-head"><h3>${esc(e.name)}</h3><span class="target">${e.target.sets ? e.target.sets + (e.target.reps ? " × " : " series") : ""}${esc(e.target.reps || "")}</span></div>
       ${e.note ? `<div class="note">${esc(e.note)}</div>` : ""}
       ${last ? `<div class="last"><span class="muted">Última vez (${fmtDate(last.date)}):</span> <span class="mono">${fmtSets(last.sets)}</span></div>` : `<div class="last muted">Primera vez que registrás este ejercicio. Anotá con qué peso arrancás.</div>`}
-      ${sum ? `<div class="hint ${sum.cls}">${esc(sum.text)}</div>` : ""}
       <div class="sets"><div class="set-row head"><span style="text-align:center">#</span><span style="text-align:center">kg</span><span style="text-align:center">Reps</span><span></span><span></span><span></span></div>${rows}</div>
       <div class="row"><button class="btn sm" data-act="addset" data-ex="${i}">+ Serie</button><button class="btn sm" data-act="tmr-start" data-ex="${i}" aria-label="Arrancar descanso de ${fmtClock(e.rest)}">⏱ ${fmtClock(e.rest)}</button>${last ? `<button class="btn sm ghost" data-act="copylast" data-ex="${i}">Copiar la última vez</button>` : ""}</div>
     </section>`;
@@ -654,7 +597,7 @@ function viewTrain() {
       ${cycHtml}
       <div class="summary" id="t-sum"></div>
       <div class="row between"><span class="status" id="t-status">${S.logs[t.logId] ? "Guardado" : "Se guarda solo mientras anotás"}</span>
-        <span class="small muted">Sobrecarga progresiva serie por serie: cada serie se compara con la misma de la última vez. Al llegar al tope del rango, esa serie sube de peso. Debajo de la serie que te toca ves si subís, mantenés o bajás. ↘ agrega un dropset.</span></div>
+        <span class="small muted">Los números en gris son tus marcas de la última vez en cada serie: superalas con más peso o una rep más. ↘ agrega un dropset.</span></div>
     </div>${exHtml}${recentHtml}`,
     mount() { updateTrainLive(); },
   };
@@ -665,19 +608,21 @@ function updateTrainLive() {
   if (!d) return;
   const hist = exHistory(S.me, t.logId);
   let sets = 0, vol = 0, prs = 0;
-  const ARROW = { up: "▲ ", down: "▼ ", keep: "= " };
   d.exercises.forEach((e, i) => {
     const prevH = (hist[e.key] || []).filter(h => h.date <= t.date);
     const prevBest = prevH.reduce((m, h) => Math.max(m, bestOf(h.sets).e), 0);
-    const lo = repRange(e.target.reps)[0];
-    setAdvice(e, prevH[prevH.length - 1], d.deload).forEach((a, j) => {
+    const last = prevH[prevH.length - 1], lo = repRange(e.target.reps)[0];
+    e.sets.forEach((s, j) => {
+      const ref = refOf(last, j), own = last?.sets[j], p0 = e.sets.slice(0, j).reverse().find(x => num(x.kg) > 0);
       const kgEl = $(`#kg-${i}-${j}`), rpEl = $(`#rp-${i}-${j}`), tip = $(`#tip-${i}-${j}`);
-      if (kgEl) kgEl.placeholder = a.plan ? fmtKg(a.plan.kg) : "kg";
-      if (rpEl) rpEl.placeholder = a.plan?.reps ? String(a.plan.reps) : lo ? String(lo) : "reps";
-      if (!tip) return;
-      const m = a.result || (a.next && a.plan ? { cls: a.plan.dir, text: ARROW[a.plan.dir] + a.plan.text } : null);
-      tip.className = "set-tip " + (m?.cls || "");
-      tip.textContent = m?.text || "";
+      // Sin marca anterior se muestra el último peso que anotaste hoy; en descarga, 3 reps menos
+      const kgPh = ref ? ref.kg : p0 ? num(p0.kg) : null;
+      const repsPh = ref ? (d.deload ? Math.max(1, ref.reps - 3) : ref.reps) : lo;
+      if (kgEl) kgEl.placeholder = kgPh != null ? fmtKg(kgPh) : "kg";
+      if (rpEl) rpEl.placeholder = repsPh ? String(repsPh) : "reps";
+      const done = num(s.kg) > 0 && num(s.reps) > 0;
+      // El aviso solo si esa misma serie existió la última vez (no por la serie de referencia de una serie nueva)
+      if (tip) tip.textContent = !done && !d.deload && fewReps(own, e.target) ? `La última vez fueron solo ${own.reps} reps con ${fmtKg(own.kg)} kg: probá con un poco menos de peso.` : "";
     });
     let shown = false;
     e.sets.forEach((s, j) => {
@@ -1193,7 +1138,8 @@ document.addEventListener("click", async ev => {
     }
     case "r-copy": rt.draft = clone(S.routines[b.dataset.from]); rt.draft.days.forEach(d => { d.id = d.id || rid(); }); rt.dirty = true; render(); break;
     case "r-discard": rt.dirty = false; render(); break;
-    case "tmr-start": { const e = t.draft?.exercises[+b.dataset.ex]; if (e) startRest(e.rest, e.name); break; }
+    case "tmr-start": { const e = t.draft?.exercises[+b.dataset.ex]; if (e) startRest({ sec: e.rest, name: e.name }); break; }
+    case "tmr-pause": pauseRest(); break;
     case "tmr-add": addRest(+b.dataset.s); break;
     case "tmr-stop": stopRest(); break;
     case "cy-deload": {
@@ -1228,6 +1174,14 @@ document.addEventListener("click", async ev => {
 document.addEventListener("keydown", ev => {
   if ((ev.key === "Enter" || ev.key === " ") && ev.target.matches("tr[data-act]")) { ev.preventDefault(); ev.target.click(); }
   if (ev.key === "Enter" && ev.target.id === "w-kg") { ev.preventDefault(); $('[data-act="w-save"]')?.click(); }
+  // Enter del teclado: en kg pasa a reps; en reps da la serie por terminada
+  if (ev.key === "Enter" && ev.target.dataset?.f) {
+    ev.preventDefault();
+    const el = ev.target, reps = el.closest(".set-row")?.querySelector('[data-f="reps"]');
+    if (el.dataset.f === "kg" && reps && !reps.value) reps.focus();
+    else if (el.dataset.was === "") finishSet(el);
+    else el.blur();
+  }
 });
 
 document.addEventListener("input", ev => {
@@ -1240,8 +1194,8 @@ document.addEventListener("input", ev => {
     if (row.dataset.dr != null) set.drops[+row.dataset.dr][el.dataset.f] = el.value;
     else set[el.dataset.f] = el.value;
     updateTrainLive();
-    if (!S.canWrite || !S.db) return;
-    queueTrainSave();
+    if (S.canWrite && S.db) queueTrainSave();
+    if (el.dataset.f === "reps") maybeFinishReps(el);
   } else if (el.dataset.r) {
     const rt = S.rt, d = rt.draft.days[+el.dataset.d];
     if (el.dataset.r === "day") d.name = el.value; else d.exercises[+el.dataset.e][el.dataset.r] = el.value;
@@ -1265,11 +1219,8 @@ document.addEventListener("change", ev => {
   if (el.id === "p-ex") { S.prog.key = el.value; render(); }
   if (el.id === "cy-start" && el.value) saveCycleStart(el.value, "Ciclo actualizado");
   if (el.id === "bk-file" && el.files?.[0]) { importBackup(el.files[0]); el.value = ""; }
-  // Al anotar las reps de una serie de hoy arranca el descanso de ese ejercicio
-  if (el.dataset.f === "reps" && el.value && S.train.date === todayISO()) {
-    const e = S.train.draft?.exercises[+el.closest(".set-row").dataset.ex];
-    if (e) startRest(e.rest, e.name);
-  }
+  // Si la serie quedó completa al salir del casillero (por ejemplo, anotaste el peso después de las reps)
+  if (el.dataset.f && el.dataset.was === "" && el.value) finishSet(el);
 });
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flushTrain(); });
 let rw = 0, lastW = innerWidth;
@@ -1278,7 +1229,8 @@ addEventListener("hashchange", () => { const h = location.hash.slice(1); if (TAB
 
 /* ---------- cronómetro de descanso ---------- */
 // Guarda la hora de fin y no un contador: sigue exacto aunque la app pase a segundo plano o se recargue
-const T = { end: 0, total: 0, label: "", tick: 0, done: false, hideT: 0, lock: null };
+// kind: "set" (siguiente serie), "ex" (cambio de ejercicio) o "manual"; left: segundos que quedaban al pausar
+const T = { end: 0, total: 0, kind: "manual", name: "", sub: "", left: null, target: null, key: "", startedAt: 0, tick: 0, done: false, hideT: 0, lock: null };
 let ac = null;
 // El navegador solo deja sonar audio después de un toque: lo habilitamos en el primero
 document.addEventListener("pointerdown", () => { try { (ac ||= new (window.AudioContext || window.webkitAudioContext)()).resume(); } catch {} }, { passive: true });
@@ -1305,20 +1257,33 @@ async function wakeLock(on) {
     if (!on && T.lock) { const l = T.lock; T.lock = null; await l.release(); }
   } catch { T.lock = null; }
 }
-function saveRest() { LS.set("lf.timer", T.end ? JSON.stringify({ end: T.end, total: T.total, label: T.label }) : ""); }
-function startRest(sec, label) {
-  Object.assign(T, { total: sec, end: Date.now() + sec * 1000, label, done: false });
-  saveRest(); showRest();
+function saveRest() { LS.set("lf.timer", T.end ? JSON.stringify({ end: T.end, total: T.total, kind: T.kind, name: T.name, sub: T.sub, left: T.left, target: T.target }) : ""); }
+const remRest = () => T.left != null ? T.left : (T.end - Date.now()) / 1000;
+// Muestra la serie que sigue, por encima del cartel
+function showTarget() {
+  const [i, j] = T.target || [];
+  $(`.set-row[data-ex="${i}"][data-s="${j}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+}
+function startRest({ sec, kind = "manual", name = "", sub = "", target = null, key = "" }) {
+  Object.assign(T, { total: sec, end: Date.now() + sec * 1000, kind, name, sub, target, key, startedAt: Date.now(), left: null, done: false });
+  saveRest(); showRest(); showTarget();
+}
+function pauseRest() {
+  if (!T.end || T.done) return;
+  if (T.left == null) T.left = Math.max(0, remRest());
+  else { T.end = Date.now() + T.left * 1000; T.left = null; }
+  saveRest(); tickRest();
 }
 function addRest(ds) {
   if (!T.end) return;
-  if (T.done) { if (ds > 0) startRest(ds, T.label); return; }
-  T.end += ds * 1000; T.total = Math.max(1, T.total + ds);
+  if (T.done) { if (ds > 0) startRest({ sec: ds, kind: T.kind, name: T.name, sub: T.sub, target: T.target }); return; }
+  if (T.left != null) T.left = Math.max(0, T.left + ds); else T.end += ds * 1000;
+  T.total = Math.max(1, T.total + ds);
   saveRest(); tickRest();
 }
 function stopRest() {
   clearInterval(T.tick); clearTimeout(T.hideT);
-  Object.assign(T, { end: 0, tick: 0, done: false });
+  Object.assign(T, { end: 0, tick: 0, done: false, left: null });
   saveRest();
   $("#tmr").hidden = true; document.body.classList.remove("has-tmr");
   wakeLock(false);
@@ -1332,12 +1297,16 @@ function showRest() {
 }
 function tickRest() {
   if (!T.end) return;
-  const rem = (T.end - Date.now()) / 1000, box = $("#tmr");
-  if (rem > 0) {
+  const rem = remRest(), box = $("#tmr"), paused = T.left != null;
+  $("#tmr-n").textContent = T.name;
+  $("#tmr-s").textContent = T.sub;
+  if (rem > 0 || paused) {
     T.done = false;
     box.classList.remove("done");
+    box.classList.toggle("paused", paused);
+    $("#tmr-k").textContent = paused ? "En pausa" : { set: "Siguiente serie en", ex: "Cambio de ejercicio en" }[T.kind] || "Descanso";
     $("#tmr-t").textContent = fmtClock(Math.ceil(rem));
-    $("#tmr-l").textContent = "Descanso · " + T.label;
+    $("#tmr-p").textContent = paused ? "Seguir" : "Pausar";
     $("#tmr-bar").style.transform = `scaleX(${Math.min(1, rem / T.total)})`;
     if (!T.tick) T.tick = setInterval(tickRest, 250);
     return;
@@ -1345,13 +1314,54 @@ function tickRest() {
   if (T.done) return;
   T.done = true;
   clearInterval(T.tick); T.tick = 0;
+  box.classList.remove("paused");
   box.classList.add("done");
-  $("#tmr-t").textContent = "¡A la serie!";
-  $("#tmr-l").textContent = T.label;
+  $("#tmr-k").textContent = "Terminó el descanso";
+  $("#tmr-t").textContent = T.kind === "ex" ? "¡Al próximo!" : "¡A la serie!";
+  showTarget();
   // Si terminó hace rato (la app estaba en segundo plano) no tiene sentido sonar ahora
   if (rem > -5) { try { navigator.vibrate?.([300, 150, 300, 150, 600]); } catch {} beep(); }
   T.hideT = setTimeout(stopRest, 60000);
 }
+
+// Al terminar de anotar una serie de hoy: se cierra el teclado y arranca el descanso con lo que sigue
+const setDone = s => num(s.kg) > 0 && num(s.reps) > 0;
+function finishSet(el) {
+  const t = S.train, row = el.closest(".set-row");
+  if (!row || !t.draft || t.date !== todayISO()) return;
+  const i = +row.dataset.ex, j = +row.dataset.s, dr = row.dataset.dr, e = t.draft.exercises[i];
+  const s = dr != null ? e?.sets[j]?.drops?.[+dr] : e?.sets[j];
+  if (!s || !(num(s.reps) > 0)) return;
+  if (!(num(s.kg) > 0)) { row.querySelector('[data-f="kg"]')?.focus(); return; }
+  const key = `${t.logId}|${i}|${j}|${dr ?? ""}`;
+  // Ya arrancó por esta misma serie (por ejemplo, el blur de abajo dispara otro change)
+  if (!(T.key === key && T.end && Date.now() - T.startedAt < 4000)) startNextRest(i, key);
+  el.blur();
+}
+function startNextRest(i, key) {
+  const t = S.train, exs = t.draft.exercises, e = exs[i];
+  const hist = exHistory(S.me, t.logId);
+  const mark = (x, j) => { const r = refOf((hist[x.key] || []).filter(h => h.date <= t.date).pop(), j); return r ? ` · la última vez ${fmtKg(r.kg)} kg × ${r.reps}` : ""; };
+  const j = e.sets.findIndex(s => !setDone(s));
+  if (j >= 0) return startRest({ sec: e.rest, kind: "set", name: e.name, sub: `Serie ${j + 1} de ${e.sets.length}${mark(e, j)}`, target: [i, j], key });
+  // Ejercicio terminado: el siguiente que tenga series sin hacer (si salteaste alguno, vuelve a ese)
+  for (let k = 1; k < exs.length; k++) {
+    const i2 = (i + k) % exs.length, x = exs[i2], j2 = x.sets.findIndex(s => !setDone(s));
+    if (j2 >= 0) return startRest({ sec: e.rest, kind: "ex", name: x.name, sub: `${x.sets.length} ${x.sets.length === 1 ? "serie" : "series"}${x.target.reps ? " de " + x.target.reps : ""}${mark(x, j2)}`, target: [i2, j2], key });
+  }
+  stopRest();
+  toast("¡Sesión completa! Buen entrenamiento.");
+}
+// Reps: 2 cifras o una de 2 a 9 ya está; un "1" puede ser 10-19, así que espera un poco
+let repsT = 0;
+function maybeFinishReps(el) {
+  clearTimeout(repsT);
+  if (el.dataset.was !== "") return; // corregir una serie vieja no arranca el descanso
+  const v = el.value.trim();
+  if (/^\d{2,}$/.test(v) || /^[2-9]$/.test(v)) finishSet(el);
+  else if (v === "1") repsT = setTimeout(() => { if (el.value.trim() === "1") finishSet(el); }, 1500);
+}
+document.addEventListener("focusin", ev => { if (ev.target.dataset?.f) ev.target.dataset.was = ev.target.value; });
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && T.end) { if (!T.done) wakeLock(true); tickRest(); } });
 
 /* ---------- ciclo y copias de seguridad ---------- */
@@ -1585,7 +1595,7 @@ setInterval(() => { if (SY.cfg && document.visibilityState === "visible") syncNo
 /* ---------- boot ---------- */
 async function boot() {
   render();
-  try { const tm = JSON.parse(LS.get("lf.timer") || "null"); if (tm?.end > Date.now() - 60000) { Object.assign(T, tm); showRest(); } } catch {}
+  try { const tm = JSON.parse(LS.get("lf.timer") || "null"); if (tm && (tm.left != null || tm.end > Date.now() - 60000)) { Object.assign(T, tm); showRest(); } } catch {}
   let db = null;
   if (window.claude?.use) { try { db = await window.claude.use("db"); } catch { db = null; } }
   if (!db && window.indexedDB) {
